@@ -1,6 +1,6 @@
 # Java Swing Tetris
 
-這是一個教學用 Java Swing Tetris 專案。Version 1 只實作 Minimum Playable Tetris：方塊會下落、可以移動與旋轉、會碰撞並固定到棋盤，新方塊無法產生時顯示 Game Over。
+這是一個教學用 Java Swing Tetris 專案。Version 2 在 Version 1 的最小可玩版本上，加入消行、分數、等級、下一個方塊預覽、暫停、重新開始與更完整的狀態顯示。
 
 ## 專案結構
 
@@ -13,8 +13,12 @@ src/tetris/
   Tetromino.java
   Shape.java
   GameEngine.java
+  GameState.java
+  ScoreManager.java
+  InputHandler.java
 docs/
   01-minimum-playable-version.md
+  02-rules-and-refactoring.md
   uml-class-design.md
   swing-event-handling.md
 ```
@@ -41,9 +45,21 @@ java -cp out tetris.TetrisApp
 
 - Left：向左移動
 - Right：向右移動
-- Down：加速下落一格
 - Up：順時針旋轉
+- Down：soft drop，向下移動一格
+- Space：hard drop，直接落到底
+- P：暫停 / 繼續
+- R：重新開始
 
-## Version 1 範圍
+## Version 2 功能
 
-本版本不包含分數、消行、音樂、音效、開始畫面或複雜 UI。目標是用最少的程式碼建立一個容易閱讀、容易教學、可以玩的基礎版本。
+- 棋盤大小 10 x 20。
+- 方塊會自動下落，並可左右移動、旋轉、soft drop、hard drop。
+- 方塊固定後會檢查並清除完整橫列。
+- `ScoreManager` 管理分數、消行數與等級。
+- 等級每 10 行提高一次，等級越高下落速度越快。
+- 右側顯示下一個方塊、分數、消行數、等級與快捷鍵。
+- `GameState` 管理 `RUNNING`、`PAUSED`、`GAME_OVER`。
+- Game Over 畫面顯示最終分數與重新開始提示。
+
+本專案仍刻意維持教學用簡潔架構，未加入音樂、音效、開始畫面或複雜 UI。

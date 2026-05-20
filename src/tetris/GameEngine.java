@@ -3,28 +3,27 @@ package tetris;
 import java.util.Random;
 
 public class GameEngine {
+    private static final int BASE_DROP_DELAY = 500;
+    private static final int MIN_DROP_DELAY = 100;
+    private static final int LEVEL_SPEED_STEP = 45;
+
     private final Board board = new Board();
+    private final ScoreManager scoreManager = new ScoreManager();
     private final Random random = new Random();
     private Tetromino currentPiece;
-    private boolean gameOver;
+    private Tetromino nextPiece;
+    private GameState state = GameState.RUNNING;
 
     public GameEngine() {
-        spawnNextPiece();
+        restart();
     }
 
     public void tick() {
-        if (gameOver) {
+        if (state != GameState.RUNNING) {
             return;
         }
 
-        Tetromino moved = currentPiece.movedBy(0, 1);
-        if (board.canPlace(moved)) {
-            currentPiece = moved;
-            return;
-        }
-
-        board.lock(currentPiece);
-        spawnNextPiece();
+        movePieceDownOrLock();
     }
 
     public void moveLeft() {
@@ -35,25 +34,87 @@ public class GameEngine {
         tryMove(currentPiece.movedBy(1, 0));
     }
 
-    public void moveDown() {
-        tick();
+    public void softDrop() {
+        if (state == GameState.RUNNING) {
+            movePieceDownOrLock();
+        }
+    }
+
+    public void hardDrop() {
+        if (state != GameState.RUNNING) {
+            return;
+        }
+
+        Tetromino dropped = currentPiece;
+        while (board.canPlace(dropped.movedBy(0, 1))) {
+            dropped = dropped.movedBy(0, 1);
+        }
+
+        currentPiece = dropped;
+        lockCurrentPiece();
     }
 
     public void rotate() {
         tryMove(currentPiece.rotatedClockwise());
     }
 
+    public void togglePause() {
+        if (state == GameState.RUNNING) {
+            state = GameState.PAUSED;
+        } else if (state == GameState.PAUSED) {
+            state = GameState.RUNNING;
+        }
+    }
+
+    public void restart() {
+        board.clear();
+        scoreManager.reset();
+        nextPiece = createRandomPiece();
+        state = GameState.RUNNING;
+        spawnNextPiece();
+    }
+
+    private void movePieceDownOrLock() {
+        Tetromino moved = currentPiece.movedBy(0, 1);
+        if (board.canPlace(moved)) {
+            currentPiece = moved;
+            return;
+        }
+
+        lockCurrentPiece();
+    }
+
+    private void lockCurrentPiece() {
+        board.lock(currentPiece);
+        int clearedLines = board.clearCompletedLines();
+        scoreManager.addClearedLines(clearedLines);
+        spawnNextPiece();
+    }
+
     private void tryMove(Tetromino candidate) {
-        if (!gameOver && board.canPlace(candidate)) {
+        if (state == GameState.RUNNING && board.canPlace(candidate)) {
             currentPiece = candidate;
         }
     }
 
     private void spawnNextPiece() {
+        currentPiece = nextPiece;
+        nextPiece = createRandomPiece();
+
+        if (!board.canPlace(currentPiece)) {
+            state = GameState.GAME_OVER;
+        }
+    }
+
+    private Tetromino createRandomPiece() {
         Shape[] shapes = Shape.values();
         Shape shape = shapes[random.nextInt(shapes.length)];
-        currentPiece = new Tetromino(shape, Board.WIDTH / 2 - 2, 0);
-        gameOver = !board.canPlace(currentPiece);
+        return new Tetromino(shape, Board.WIDTH / 2 - 2, 0);
+    }
+
+    public int getDropDelay() {
+        int delay = BASE_DROP_DELAY - (scoreManager.getLevel() - 1) * LEVEL_SPEED_STEP;
+        return Math.max(MIN_DROP_DELAY, delay);
     }
 
     public Board getBoard() {
@@ -64,7 +125,19 @@ public class GameEngine {
         return currentPiece;
     }
 
+    public Tetromino getNextPiece() {
+        return nextPiece;
+    }
+
+    public ScoreManager getScoreManager() {
+        return scoreManager;
+    }
+
+    public GameState getState() {
+        return state;
+    }
+
     public boolean isGameOver() {
-        return gameOver;
+        return state == GameState.GAME_OVER;
     }
 }

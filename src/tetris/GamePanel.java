@@ -7,58 +7,33 @@ import java.awt.FontMetrics;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.RenderingHints;
-import java.awt.event.KeyAdapter;
-import java.awt.event.KeyEvent;
 import javax.swing.JPanel;
 import javax.swing.Timer;
 
 public class GamePanel extends JPanel {
     private static final int CELL_SIZE = 30;
-    private static final int TIMER_DELAY = 500;
+    private static final int SIDE_PANEL_WIDTH = 170;
+    private static final int PREVIEW_CELL_SIZE = 20;
 
     private final GameEngine engine = new GameEngine();
     private final Timer timer;
 
     public GamePanel() {
-        setPreferredSize(new Dimension(Board.WIDTH * CELL_SIZE, Board.HEIGHT * CELL_SIZE));
+        setPreferredSize(new Dimension(Board.WIDTH * CELL_SIZE + SIDE_PANEL_WIDTH, Board.HEIGHT * CELL_SIZE));
         setBackground(new Color(24, 24, 28));
         setFocusable(true);
 
-        timer = new Timer(TIMER_DELAY, event -> {
+        timer = new Timer(engine.getDropDelay(), event -> {
             engine.tick();
+            ((Timer) event.getSource()).setDelay(engine.getDropDelay());
             repaint();
-            if (engine.isGameOver()) {
-                ((Timer) event.getSource()).stop();
-            }
         });
         timer.start();
 
-        addKeyListener(new KeyAdapter() {
-            @Override
-            public void keyPressed(KeyEvent event) {
-                if (engine.isGameOver()) {
-                    return;
-                }
-
-                switch (event.getKeyCode()) {
-                    case KeyEvent.VK_LEFT:
-                        engine.moveLeft();
-                        break;
-                    case KeyEvent.VK_RIGHT:
-                        engine.moveRight();
-                        break;
-                    case KeyEvent.VK_DOWN:
-                        engine.moveDown();
-                        break;
-                    case KeyEvent.VK_UP:
-                        engine.rotate();
-                        break;
-                    default:
-                        return;
-                }
-                repaint();
-            }
-        });
+        addKeyListener(new InputHandler(engine, () -> {
+            timer.setDelay(engine.getDropDelay());
+            repaint();
+        }));
     }
 
     @Override
@@ -77,9 +52,12 @@ public class GamePanel extends JPanel {
         drawBoard(g2);
         drawPiece(g2, engine.getCurrentPiece());
         drawGrid(g2);
+        drawSidePanel(g2);
 
-        if (engine.isGameOver()) {
-            drawGameOver(g2);
+        if (engine.getState() == GameState.PAUSED) {
+            drawOverlay(g2, "Paused", "Press P to resume");
+        } else if (engine.getState() == GameState.GAME_OVER) {
+            drawOverlay(g2, "Game Over", "Press R to restart");
         }
 
         g2.dispose();
@@ -98,6 +76,10 @@ public class GamePanel extends JPanel {
     }
 
     private void drawPiece(Graphics2D g2, Tetromino piece) {
+        if (piece == null) {
+            return;
+        }
+
         for (int[] block : piece.getBlocks()) {
             drawCell(g2, piece.getX() + block[0], piece.getY() + block[1], piece.getColor());
         }
@@ -125,17 +107,69 @@ public class GamePanel extends JPanel {
         }
     }
 
-    private void drawGameOver(Graphics2D g2) {
-        g2.setColor(new Color(0, 0, 0, 170));
-        g2.fillRect(0, 0, getWidth(), getHeight());
+    private void drawSidePanel(Graphics2D g2) {
+        int x = Board.WIDTH * CELL_SIZE;
 
-        String text = "Game Over";
-        g2.setFont(new Font(Font.SANS_SERIF, Font.BOLD, 32));
+        g2.setColor(new Color(34, 34, 40));
+        g2.fillRect(x, 0, SIDE_PANEL_WIDTH, getHeight());
+
+        ScoreManager score = engine.getScoreManager();
+        g2.setColor(Color.WHITE);
+        g2.setFont(new Font(Font.SANS_SERIF, Font.BOLD, 16));
+        g2.drawString("Next", x + 20, 35);
+        drawPreview(g2, engine.getNextPiece(), x + 35, 55);
+
+        g2.setFont(new Font(Font.SANS_SERIF, Font.PLAIN, 15));
+        g2.drawString("Score", x + 20, 175);
+        g2.drawString(String.valueOf(score.getScore()), x + 20, 198);
+        g2.drawString("Lines", x + 20, 235);
+        g2.drawString(String.valueOf(score.getLinesCleared()), x + 20, 258);
+        g2.drawString("Level", x + 20, 295);
+        g2.drawString(String.valueOf(score.getLevel()), x + 20, 318);
+
+        g2.setColor(new Color(190, 190, 200));
+        g2.setFont(new Font(Font.SANS_SERIF, Font.PLAIN, 12));
+        g2.drawString("P: Pause", x + 20, 390);
+        g2.drawString("R: Restart", x + 20, 412);
+        g2.drawString("Space: Drop", x + 20, 434);
+    }
+
+    private void drawPreview(Graphics2D g2, Tetromino piece, int startX, int startY) {
+        if (piece == null) {
+            return;
+        }
+
+        for (int[] block : piece.getBlocks()) {
+            int x = startX + block[0] * PREVIEW_CELL_SIZE;
+            int y = startY + block[1] * PREVIEW_CELL_SIZE;
+            g2.setColor(piece.getColor());
+            g2.fillRect(x + 1, y + 1, PREVIEW_CELL_SIZE - 2, PREVIEW_CELL_SIZE - 2);
+            g2.setColor(piece.getColor().brighter());
+            g2.drawRect(x + 1, y + 1, PREVIEW_CELL_SIZE - 2, PREVIEW_CELL_SIZE - 2);
+        }
+    }
+
+    private void drawOverlay(Graphics2D g2, String title, String subtitle) {
+        g2.setColor(new Color(0, 0, 0, 170));
+        g2.fillRect(0, 0, Board.WIDTH * CELL_SIZE, getHeight());
+
+        g2.setFont(new Font(Font.SANS_SERIF, Font.BOLD, 34));
         FontMetrics metrics = g2.getFontMetrics();
-        int x = (getWidth() - metrics.stringWidth(text)) / 2;
-        int y = (getHeight() + metrics.getAscent()) / 2;
+        int x = (Board.WIDTH * CELL_SIZE - metrics.stringWidth(title)) / 2;
+        int y = getHeight() / 2 - 25;
 
         g2.setColor(Color.WHITE);
-        g2.drawString(text, x, y);
+        g2.drawString(title, x, y);
+
+        g2.setFont(new Font(Font.SANS_SERIF, Font.PLAIN, 16));
+        metrics = g2.getFontMetrics();
+        x = (Board.WIDTH * CELL_SIZE - metrics.stringWidth(subtitle)) / 2;
+        g2.drawString(subtitle, x, y + 35);
+
+        if (engine.getState() == GameState.GAME_OVER) {
+            String scoreText = "Score: " + engine.getScoreManager().getScore();
+            x = (Board.WIDTH * CELL_SIZE - metrics.stringWidth(scoreText)) / 2;
+            g2.drawString(scoreText, x, y + 62);
+        }
     }
 }

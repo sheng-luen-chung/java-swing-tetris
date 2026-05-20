@@ -13,27 +13,53 @@ GamePanel extends JPanel
   - GameEngine engine
   - Timer timer
   + paintComponent(Graphics g)
-  責任：處理 Swing 畫面、Timer game loop、鍵盤事件與 repaint。
+  責任：顯示棋盤、目前方塊、下一個方塊、分數、等級、Paused 與 Game Over overlay。
+
+InputHandler extends KeyAdapter
+  - GameEngine engine
+  - Runnable afterInput
+  + keyPressed(KeyEvent event)
+  責任：集中處理鍵盤輸入，將按鍵轉成 GameEngine 的操作。
 
 GameEngine
   - Board board
+  - ScoreManager scoreManager
   - Tetromino currentPiece
-  - boolean gameOver
+  - Tetromino nextPiece
+  - GameState state
   + tick()
   + moveLeft()
   + moveRight()
-  + moveDown()
+  + softDrop()
+  + hardDrop()
   + rotate()
-  責任：管理遊戲規則，例如下落、移動、旋轉、固定方塊與產生新方塊。
+  + togglePause()
+  + restart()
+  + getDropDelay()
+  責任：管理遊戲規則，例如下落、移動、旋轉、固定、消行、產生方塊、狀態切換與速度。
+
+GameState enum
+  RUNNING, PAUSED, GAME_OVER
+  責任：明確表示目前遊戲流程狀態，避免用多個 boolean 混合判斷。
+
+ScoreManager
+  - int score
+  - int linesCleared
+  - int level
+  + addClearedLines(int lines)
+  + reset()
+  責任：管理分數、消行數與等級計算。
 
 Board
   + WIDTH = 10
   + HEIGHT = 20
   - Color[][] cells
+  + clear()
   + canPlace(Tetromino tetromino)
   + lock(Tetromino tetromino)
+  + clearCompletedLines()
   + getCell(int row, int col)
-  責任：保存棋盤狀態，判斷方塊是否可放置，將方塊固定到棋盤。
+  責任：保存棋盤狀態，判斷碰撞，固定方塊，清除完整橫列。
 
 Tetromino
   - Shape shape
@@ -43,7 +69,7 @@ Tetromino
   + movedBy(int dx, int dy)
   + rotatedClockwise()
   + getBlocks()
-  責任：表示目前方塊的位置、形狀與旋轉後的格子資料。
+  責任：表示一個方塊的位置、形狀與旋轉後的格子資料。
 
 Shape enum
   I, O, T, S, Z, J, L
@@ -55,10 +81,13 @@ Shape enum
 ## 關係摘要
 
 ```text
-TetrisApp -> GameFrame -> GamePanel -> GameEngine
+TetrisApp -> GameFrame -> GamePanel
+GamePanel -> GameEngine
+GamePanel -> InputHandler
+InputHandler -> GameEngine
 GameEngine -> Board
+GameEngine -> ScoreManager
+GameEngine -> GameState
 GameEngine -> Tetromino
 Tetromino -> Shape
-Board 使用 Tetromino 判斷碰撞與固定方塊
-GamePanel 讀取 Board 與 Tetromino 來繪製畫面
 ```
