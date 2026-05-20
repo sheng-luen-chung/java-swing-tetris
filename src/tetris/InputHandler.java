@@ -36,6 +36,9 @@ public class InputHandler extends KeyAdapter {
             case KeyEvent.VK_R:
                 engine.restart();
                 break;
+            case KeyEvent.VK_M:
+                engine.toggleMusic();
+                break;
             default:
                 return;
         }

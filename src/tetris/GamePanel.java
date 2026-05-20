@@ -126,12 +126,24 @@ public class GamePanel extends JPanel {
         g2.drawString(String.valueOf(score.getLinesCleared()), x + 20, 258);
         g2.drawString("Level", x + 20, 295);
         g2.drawString(String.valueOf(score.getLevel()), x + 20, 318);
+        g2.drawString("Music", x + 20, 355);
+        g2.drawString(getMusicStatus(), x + 20, 378);
 
         g2.setColor(new Color(190, 190, 200));
         g2.setFont(new Font(Font.SANS_SERIF, Font.PLAIN, 12));
-        g2.drawString("P: Pause", x + 20, 390);
-        g2.drawString("R: Restart", x + 20, 412);
-        g2.drawString("Space: Drop", x + 20, 434);
+        g2.drawString("Arrow keys: move / rotate", x + 12, 430);
+        g2.drawString("Space: hard drop", x + 12, 450);
+        g2.drawString("P: pause", x + 12, 470);
+        g2.drawString("R: restart", x + 12, 490);
+        g2.drawString("M: music on/off", x + 12, 510);
+    }
+
+    private String getMusicStatus() {
+        AudioManager audioManager = engine.getAudioManager();
+        if (!audioManager.isMusicAvailable()) {
+            return "unavailable";
+        }
+        return audioManager.isMusicEnabled() ? "on" : "off";
     }
 
     private void drawPreview(Graphics2D g2, Tetromino piece, int startX, int startY) {

@@ -9,6 +9,7 @@ public class GameEngine {
 
     private final Board board = new Board();
     private final ScoreManager scoreManager = new ScoreManager();
+    private final AudioManager audioManager = new AudioManager();
     private final Random random = new Random();
     private Tetromino currentPiece;
     private Tetromino nextPiece;
@@ -51,6 +52,7 @@ public class GameEngine {
         }
 
         currentPiece = dropped;
+        audioManager.playDropSound();
         lockCurrentPiece();
     }
 
@@ -87,6 +89,9 @@ public class GameEngine {
     private void lockCurrentPiece() {
         board.lock(currentPiece);
         int clearedLines = board.clearCompletedLines();
+        if (clearedLines > 0) {
+            audioManager.playLineClearSound();
+        }
         scoreManager.addClearedLines(clearedLines);
         spawnNextPiece();
     }
@@ -135,6 +140,14 @@ public class GameEngine {
 
     public GameState getState() {
         return state;
+    }
+
+    public AudioManager getAudioManager() {
+        return audioManager;
+    }
+
+    public void toggleMusic() {
+        audioManager.toggleMusic();
     }
 
     public boolean isGameOver() {

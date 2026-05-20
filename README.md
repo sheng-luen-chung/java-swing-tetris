@@ -1,6 +1,6 @@
 # Java Swing Tetris
 
-這是一個教學用 Java Swing Tetris 專案。Version 2 在 Version 1 的最小可玩版本上，加入消行、分數、等級、下一個方塊預覽、暫停、重新開始與更完整的狀態顯示。
+這是一個教學用 Java Swing Tetris 專案。Version 3 在 Version 2 的規則與 UI 基礎上，加入 audio-ready 架構：目前 repo 不附音樂檔，但未來只要放入合法取得或自行製作的 MIDI 檔，就可以用 `M` 鍵切換背景音樂。
 
 ## 專案結構
 
@@ -16,9 +16,14 @@ src/tetris/
   GameState.java
   ScoreManager.java
   InputHandler.java
+  AudioManager.java
+assets/audio/
+  README.md
+  .gitkeep
 docs/
   01-minimum-playable-version.md
   02-rules-and-refactoring.md
+  03-audio-ready-polish.md
   uml-class-design.md
   swing-event-handling.md
 ```
@@ -27,39 +32,31 @@ docs/
 
 請先確認已安裝 JDK，並且 `javac`、`java` 可以在終端機中使用。
 
-1. 在 VS Code 開啟此資料夾。
-2. 開啟 Terminal。
-3. 編譯：
-
 ```powershell
 javac -d out src/tetris/*.java
-```
-
-4. 執行：
-
-```powershell
 java -cp out tetris.TetrisApp
 ```
 
 ## 操作方式
 
-- Left：向左移動
-- Right：向右移動
-- Up：順時針旋轉
-- Down：soft drop，向下移動一格
-- Space：hard drop，直接落到底
-- P：暫停 / 繼續
-- R：重新開始
+- Arrow keys：移動 / 旋轉
+- Down：soft drop
+- Space：hard drop
+- P：pause / resume
+- R：restart
+- M：music on/off
 
-## Version 2 功能
+## Version 3 功能
 
-- 棋盤大小 10 x 20。
-- 方塊會自動下落，並可左右移動、旋轉、soft drop、hard drop。
-- 方塊固定後會檢查並清除完整橫列。
-- `ScoreManager` 管理分數、消行數與等級。
-- 等級每 10 行提高一次，等級越高下落速度越快。
-- 右側顯示下一個方塊、分數、消行數、等級與快捷鍵。
-- `GameState` 管理 `RUNNING`、`PAUSED`、`GAME_OVER`。
-- Game Over 畫面顯示最終分數與重新開始提示。
+- 保留 Version 2 的消行、分數、等級、加速、下一個方塊預覽、暫停與重新開始。
+- 新增 `AudioManager`，使用 Java 標準函式庫處理音訊。
+- MIDI 背景音樂預設路徑為 `assets/audio/katusha.mid`。
+- 如果 `katusha.mid` 不存在，console 會顯示 warning，遊戲仍正常執行。
+- UI 會顯示 Music 狀態：`unavailable`、`off` 或 `on`。
+- `clear.wav` 與 `drop.wav` 是未來音效擴充點，目前不存在也不會 crash。
 
-本專案仍刻意維持教學用簡潔架構，未加入音樂、音效、開始畫面或複雜 UI。
+本教學 repo 不直接附上 `katusha.mid`。若要啟用背景音樂，請自行放入合法取得或自行製作的：
+
+```text
+assets/audio/katusha.mid
+```

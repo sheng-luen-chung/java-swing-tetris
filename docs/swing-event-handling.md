@@ -1,6 +1,6 @@
 # Swing Event Handling 說明
 
-Version 2 把 Swing 事件處理分成四個角色：`Timer` 推動時間，`InputHandler` 接收鍵盤，`GameEngine` 更新規則狀態，`GamePanel` 負責畫面。
+Version 3 的事件流程仍維持 Version 2 的分工：`Timer` 推動時間，`InputHandler` 接收鍵盤，`GameEngine` 更新規則狀態，`GamePanel` 負責畫面。新增的音訊功能由 `AudioManager` 管理。
 
 ## Timer：固定時間推進遊戲
 
@@ -18,14 +18,12 @@ timer = new Timer(engine.getDropDelay(), event -> {
 
 1. 呼叫 `engine.tick()`。
 2. 如果狀態是 `RUNNING`，目前方塊往下移動；如果不能下移，就固定、消行、計分並產生下一個方塊。
-3. 呼叫 `engine.getDropDelay()` 更新 Timer 延遲，讓等級越高速度越快。
+3. 呼叫 `engine.getDropDelay()` 更新 Timer delay，讓等級越高速度越快。
 4. 呼叫 `repaint()` 要求 Swing 重畫畫面。
-
-Timer 在 `PAUSED` 或 `GAME_OVER` 時仍可觸發，但 `GameEngine` 會因狀態不是 `RUNNING` 而不更新遊戲規則。這讓玩家仍然可以按 `R` 重新開始。
 
 ## InputHandler：集中鍵盤操作
 
-Version 1 的鍵盤事件寫在 `GamePanel` 裡。Version 2 新增 `InputHandler`，讓輸入控制集中管理：
+`InputHandler` 把鍵盤事件轉成 `GameEngine` 的方法呼叫：
 
 ```text
 Left  -> engine.moveLeft()
@@ -35,20 +33,21 @@ Down  -> engine.softDrop()
 Space -> engine.hardDrop()
 P     -> engine.togglePause()
 R     -> engine.restart()
+M     -> engine.toggleMusic()
 ```
 
-`InputHandler` 不直接改畫面，只呼叫 `GameEngine`。操作完成後執行 `afterInput`，由 `GamePanel` 更新 Timer delay 並呼叫 `repaint()`。
+`M` 鍵不直接處理 MIDI，也不碰 Swing 畫圖。它只呼叫 `GameEngine.toggleMusic()`，再由 `GameEngine` 轉交給 `AudioManager`。
 
-## GameEngine：規則與狀態
+## GameEngine 與 AudioManager
 
-`GameEngine` 是遊戲規則中心。它知道：
+`GameEngine` 是規則中心，知道何時發生 hard drop 或消行。這些事件發生時，它可以呼叫：
 
-- 目前方塊與下一個方塊。
-- 棋盤狀態。
-- 分數、消行數、等級。
-- 目前是 `RUNNING`、`PAUSED` 或 `GAME_OVER`。
+```java
+audioManager.playDropSound();
+audioManager.playLineClearSound();
+```
 
-這樣 `GamePanel` 不需要知道如何計分，也不需要知道消行規則。它只讀取狀態並畫出來。
+目前 `drop.wav` 與 `clear.wav` 可以不存在；`AudioManager` 會安靜略過。背景音樂則透過 `AudioManager.toggleMusic()` 控制。
 
 ## GamePanel：顯示目前狀態
 
@@ -57,9 +56,18 @@ R     -> engine.restart()
 1. 畫棋盤中已固定的方塊。
 2. 畫目前正在下落的方塊。
 3. 畫格線。
-4. 畫右側資訊面板：Next、Score、Lines、Level。
-5. 如果狀態是 `PAUSED`，畫暫停 overlay。
-6. 如果狀態是 `GAME_OVER`，畫 Game Over overlay、最終分數與重新開始提示。
+4. 畫右側資訊面板：Next、Score、Lines、Level、Music。
+5. 畫操作提示：Arrow keys、Space、P、R、M。
+6. 如果狀態是 `PAUSED`，畫暫停 overlay。
+7. 如果狀態是 `GAME_OVER`，畫 Game Over overlay。
+
+Music 顯示規則：
+
+```text
+katusha.mid 不存在 -> unavailable
+katusha.mid 存在但未播放 -> off
+katusha.mid 正在播放 -> on
+```
 
 ## repaint() 與 paintComponent()
 
@@ -71,7 +79,7 @@ Swing 之後會在 Event Dispatch Thread 呼叫：
 protected void paintComponent(Graphics g)
 ```
 
-所有畫面更新都應該集中在 `paintComponent()`，不要在 `Timer` 或 `InputHandler` 裡直接拿 `Graphics` 畫圖。
+所有畫面更新都應該集中在 `paintComponent()`。Timer、InputHandler 與 AudioManager 都不應該直接拿 `Graphics` 畫圖。
 
 ## 整體流程
 
@@ -79,6 +87,7 @@ protected void paintComponent(Graphics g)
 Timer 觸發
   -> GameEngine.tick()
   -> GameEngine 根據 GameState 決定是否更新
+  -> 若消行，GameEngine 呼叫 AudioManager.playLineClearSound()
   -> GamePanel 更新 Timer delay
   -> repaint()
   -> paintComponent()
@@ -86,6 +95,7 @@ Timer 觸發
 玩家按鍵
   -> InputHandler.keyPressed()
   -> 呼叫 GameEngine 對應方法
+  -> 若按 M，GameEngine 呼叫 AudioManager.toggleMusic()
   -> afterInput 更新 Timer delay 並 repaint()
   -> paintComponent()
 ```

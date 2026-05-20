@@ -13,17 +13,18 @@ GamePanel extends JPanel
   - GameEngine engine
   - Timer timer
   + paintComponent(Graphics g)
-  責任：顯示棋盤、目前方塊、下一個方塊、分數、等級、Paused 與 Game Over overlay。
+  責任：顯示棋盤、方塊、下一個方塊、分數、等級、音樂狀態、操作提示與 overlay。
 
 InputHandler extends KeyAdapter
   - GameEngine engine
   - Runnable afterInput
   + keyPressed(KeyEvent event)
-  責任：集中處理鍵盤輸入，將按鍵轉成 GameEngine 的操作。
+  責任：集中處理鍵盤輸入，包含移動、旋轉、hard drop、pause、restart 與 music toggle。
 
 GameEngine
   - Board board
   - ScoreManager scoreManager
+  - AudioManager audioManager
   - Tetromino currentPiece
   - Tetromino nextPiece
   - GameState state
@@ -35,8 +36,22 @@ GameEngine
   + rotate()
   + togglePause()
   + restart()
+  + toggleMusic()
   + getDropDelay()
-  責任：管理遊戲規則，例如下落、移動、旋轉、固定、消行、產生方塊、狀態切換與速度。
+  責任：管理遊戲規則、狀態切換、速度、消行後音效與音樂控制入口。
+
+AudioManager
+  - Sequencer sequencer
+  - boolean musicAvailable
+  - boolean musicEnabled
+  + playBackgroundMusic()
+  + stopBackgroundMusic()
+  + toggleMusic()
+  + isMusicEnabled()
+  + isMusicAvailable()
+  + playLineClearSound()
+  + playDropSound()
+  責任：使用 Java 標準音訊 API 管理 MIDI 背景音樂與未來 WAV 音效擴充點。
 
 GameState enum
   RUNNING, PAUSED, GAME_OVER
@@ -87,6 +102,7 @@ GamePanel -> InputHandler
 InputHandler -> GameEngine
 GameEngine -> Board
 GameEngine -> ScoreManager
+GameEngine -> AudioManager
 GameEngine -> GameState
 GameEngine -> Tetromino
 Tetromino -> Shape
