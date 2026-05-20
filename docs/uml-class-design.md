@@ -1,109 +1,307 @@
-# 文字版 UML Class Design
+# UML Class Design
 
-```text
-TetrisApp
-  + main(String[] args)
-  責任：程式進入點，在 Swing Event Dispatch Thread 建立 GameFrame。
+這份文件使用 Mermaid class diagram 描述目前 Version 3 的 class 關係。若在 GitHub 或支援 Mermaid 的 VS Code Markdown preview 中開啟，下面區塊會被渲染成 UML 圖。
 
-GameFrame extends JFrame
-  + GameFrame()
-  責任：設定主視窗標題、關閉行為、大小與 GamePanel。
+## Mermaid Diagram
 
-GamePanel extends JPanel
-  - GameEngine engine
-  - Timer timer
-  + paintComponent(Graphics g)
-  責任：顯示棋盤、方塊、下一個方塊、分數、等級、音樂狀態、操作提示與 overlay。
+```mermaid
+classDiagram
+    class TetrisApp {
+        +main(String[] args) void
+    }
 
-InputHandler extends KeyAdapter
-  - GameEngine engine
-  - Runnable afterInput
-  + keyPressed(KeyEvent event)
-  責任：集中處理鍵盤輸入，包含移動、旋轉、hard drop、pause、restart 與 music toggle。
+    class GameFrame {
+        +GameFrame()
+    }
 
-GameEngine
-  - Board board
-  - ScoreManager scoreManager
-  - AudioManager audioManager
-  - Tetromino currentPiece
-  - Tetromino nextPiece
-  - GameState state
-  + tick()
-  + moveLeft()
-  + moveRight()
-  + softDrop()
-  + hardDrop()
-  + rotate()
-  + togglePause()
-  + restart()
-  + toggleMusic()
-  + getDropDelay()
-  責任：管理遊戲規則、狀態切換、速度、消行後音效與音樂控制入口。
+    class GamePanel {
+        -GameEngine engine
+        -Timer timer
+        +addNotify() void
+        #paintComponent(Graphics g) void
+    }
 
-AudioManager
-  - Sequencer sequencer
-  - boolean musicAvailable
-  - boolean musicEnabled
-  + playBackgroundMusic()
-  + stopBackgroundMusic()
-  + toggleMusic()
-  + isMusicEnabled()
-  + isMusicAvailable()
-  + playLineClearSound()
-  + playDropSound()
-  責任：使用 Java 標準音訊 API 管理 MIDI 背景音樂與未來 WAV 音效擴充點。
+    class InputHandler {
+        -GameEngine engine
+        -Runnable afterInput
+        +keyPressed(KeyEvent event) void
+    }
 
-GameState enum
-  RUNNING, PAUSED, GAME_OVER
-  責任：明確表示目前遊戲流程狀態，避免用多個 boolean 混合判斷。
+    class GameEngine {
+        -Board board
+        -ScoreManager scoreManager
+        -AudioManager audioManager
+        -Tetromino currentPiece
+        -Tetromino nextPiece
+        -GameState state
+        +tick() void
+        +moveLeft() void
+        +moveRight() void
+        +softDrop() void
+        +hardDrop() void
+        +rotate() void
+        +togglePause() void
+        +restart() void
+        +toggleMusic() void
+        +getDropDelay() int
+        +getAudioManager() AudioManager
+    }
 
-ScoreManager
-  - int score
-  - int linesCleared
-  - int level
-  + addClearedLines(int lines)
-  + reset()
-  責任：管理分數、消行數與等級計算。
+    class AudioManager {
+        -Sequencer sequencer
+        -boolean musicAvailable
+        -boolean musicEnabled
+        +playBackgroundMusic() void
+        +stopBackgroundMusic() void
+        +toggleMusic() void
+        +isMusicEnabled() boolean
+        +isMusicAvailable() boolean
+        +playLineClearSound() void
+        +playDropSound() void
+    }
 
-Board
-  + WIDTH = 10
-  + HEIGHT = 20
-  - Color[][] cells
-  + clear()
-  + canPlace(Tetromino tetromino)
-  + lock(Tetromino tetromino)
-  + clearCompletedLines()
-  + getCell(int row, int col)
-  責任：保存棋盤狀態，判斷碰撞，固定方塊，清除完整橫列。
+    class Board {
+        +WIDTH int
+        +HEIGHT int
+        -Color[][] cells
+        +clear() void
+        +canPlace(Tetromino tetromino) boolean
+        +lock(Tetromino tetromino) void
+        +clearCompletedLines() int
+        +getCell(int row, int col) Color
+    }
 
-Tetromino
-  - Shape shape
-  - int[][] blocks
-  - int x
-  - int y
-  + movedBy(int dx, int dy)
-  + rotatedClockwise()
-  + getBlocks()
-  責任：表示一個方塊的位置、形狀與旋轉後的格子資料。
+    class Tetromino {
+        -Shape shape
+        -int[][] blocks
+        -int x
+        -int y
+        +movedBy(int dx, int dy) Tetromino
+        +rotatedClockwise() Tetromino
+        +getBlocks() int[][]
+        +getColor() Color
+        +getX() int
+        +getY() int
+    }
 
-Shape enum
-  I, O, T, S, Z, J, L
-  - int[][] blocks
-  - Color color
-  責任：定義七種 Tetris 方塊的初始格子座標與顏色。
+    class Shape {
+        <<enumeration>>
+        I
+        O
+        T
+        S
+        Z
+        J
+        L
+        -int[][] blocks
+        -Color color
+        +getBlocks() int[][]
+        +getColor() Color
+    }
+
+    class GameState {
+        <<enumeration>>
+        RUNNING
+        PAUSED
+        GAME_OVER
+    }
+
+    class ScoreManager {
+        -int score
+        -int linesCleared
+        -int level
+        +reset() void
+        +addClearedLines(int lines) void
+        +getScore() int
+        +getLinesCleared() int
+        +getLevel() int
+    }
+
+    JFrame <|-- GameFrame
+    JPanel <|-- GamePanel
+    KeyAdapter <|-- InputHandler
+
+    TetrisApp --> GameFrame : creates
+    GameFrame --> GamePanel : contains
+    GamePanel --> GameEngine : renders state
+    GamePanel --> InputHandler : registers
+    InputHandler --> GameEngine : commands
+    GameEngine *-- Board
+    GameEngine *-- ScoreManager
+    GameEngine *-- AudioManager
+    GameEngine --> GameState
+    GameEngine --> Tetromino
+    Tetromino --> Shape
+    Board --> Tetromino : validates / locks
 ```
 
-## 關係摘要
+## Class Responsibilities
 
-```text
-TetrisApp -> GameFrame -> GamePanel
-GamePanel -> GameEngine
-GamePanel -> InputHandler
-InputHandler -> GameEngine
-GameEngine -> Board
-GameEngine -> ScoreManager
-GameEngine -> AudioManager
-GameEngine -> GameState
-GameEngine -> Tetromino
-Tetromino -> Shape
+`TetrisApp`：程式進入點，負責在 Swing Event Dispatch Thread 建立 `GameFrame`。
+
+`GameFrame`：主視窗，負責設定標題、關閉行為、尺寸與放入 `GamePanel`。
+
+`GamePanel`：畫面層，負責繪製棋盤、方塊、分數、等級、下一個方塊、音樂狀態、操作提示與 overlay。
+
+`InputHandler`：輸入層，集中處理方向鍵、Space、P、R、M，並轉呼叫 `GameEngine`。
+
+`GameEngine`：規則層，管理下落、移動、旋轉、hard drop、消行、分數、等級、狀態切換與音訊操作入口。
+
+`AudioManager`：音訊層，負責 MIDI 背景音樂與未來 WAV 音效擴充點，並確保音檔缺失時遊戲不 crash。
+
+`Board`：棋盤資料，保存固定方塊、判斷碰撞、清除完整行。
+
+`Tetromino`：目前方塊的形狀、位置與旋轉後 block 座標。
+
+`Shape`：七種 Tetromino 的初始 block 座標與顏色。
+
+`GameState`：遊戲流程狀態，包含 `RUNNING`、`PAUSED`、`GAME_OVER`。
+
+`ScoreManager`：分數、消行數與等級計算。
+
+## Use Case Diagram
+
+Mermaid 沒有專用的 UML use case 語法，因此這裡用 flowchart 表示 actor 與 use case 的關係。
+
+```mermaid
+flowchart LR
+    Player([Player])
+
+    subgraph TetrisGame["Java Swing Tetris"]
+        Move["Move piece"]
+        Rotate["Rotate piece"]
+        SoftDrop["Soft drop"]
+        HardDrop["Hard drop"]
+        Pause["Pause / Resume"]
+        Restart["Restart game"]
+        ViewInfo["View score / lines / level"]
+        Preview["View next piece"]
+        ToggleMusic["Toggle music"]
+        GameOver["See Game Over"]
+    end
+
+    Player --> Move
+    Player --> Rotate
+    Player --> SoftDrop
+    Player --> HardDrop
+    Player --> Pause
+    Player --> Restart
+    Player --> ViewInfo
+    Player --> Preview
+    Player --> ToggleMusic
+    Player --> GameOver
+
+    HardDrop -. may trigger .-> GameOver
+    Move -. uses .-> ViewInfo
+    Rotate -. uses .-> Preview
+    ToggleMusic -. depends on .-> ViewInfo
+```
+
+## Scenario Diagrams
+
+以下 scenario 描述玩家操作如何流經 `InputHandler`、`GameEngine`、`AudioManager` 與 `GamePanel`。
+
+### Scenario 1：Move Or Rotate Piece
+
+```mermaid
+sequenceDiagram
+    actor Player
+    participant InputHandler
+    participant GameEngine
+    participant Board
+    participant GamePanel
+
+    Player->>InputHandler: Press Arrow key
+    InputHandler->>GameEngine: moveLeft() / moveRight() / rotate() / softDrop()
+    GameEngine->>Board: canPlace(candidate)
+    Board-->>GameEngine: true / false
+    alt valid move
+        GameEngine->>GameEngine: update currentPiece
+    else invalid move
+        GameEngine->>GameEngine: keep currentPiece
+    end
+    InputHandler->>GamePanel: afterInput callback
+    GamePanel->>GamePanel: repaint()
+```
+
+### Scenario 2：Timer Tick And Line Clear
+
+```mermaid
+sequenceDiagram
+    participant Timer
+    participant GameEngine
+    participant Board
+    participant ScoreManager
+    participant AudioManager
+    participant GamePanel
+
+    Timer->>GameEngine: tick()
+    GameEngine->>Board: canPlace(currentPiece moved down)
+    alt can move down
+        GameEngine->>GameEngine: update currentPiece
+    else cannot move down
+        GameEngine->>Board: lock(currentPiece)
+        GameEngine->>Board: clearCompletedLines()
+        Board-->>GameEngine: clearedLines
+        GameEngine->>ScoreManager: addClearedLines(clearedLines)
+        opt clearedLines > 0
+            GameEngine->>AudioManager: playLineClearSound()
+        end
+        GameEngine->>GameEngine: spawnNextPiece()
+    end
+    Timer->>GamePanel: repaint()
+```
+
+### Scenario 3：Hard Drop
+
+```mermaid
+sequenceDiagram
+    actor Player
+    participant InputHandler
+    participant GameEngine
+    participant Board
+    participant AudioManager
+    participant GamePanel
+
+    Player->>InputHandler: Press Space
+    InputHandler->>GameEngine: hardDrop()
+    loop until next row is blocked
+        GameEngine->>Board: canPlace(piece moved down)
+        Board-->>GameEngine: true
+        GameEngine->>GameEngine: move piece down
+    end
+    GameEngine->>AudioManager: playDropSound()
+    GameEngine->>Board: lock(currentPiece)
+    GameEngine->>Board: clearCompletedLines()
+    InputHandler->>GamePanel: afterInput callback
+    GamePanel->>GamePanel: repaint()
+```
+
+### Scenario 4：Pause, Restart, And Music Toggle
+
+```mermaid
+sequenceDiagram
+    actor Player
+    participant InputHandler
+    participant GameEngine
+    participant AudioManager
+    participant GamePanel
+
+    alt Press P
+        Player->>InputHandler: Press P
+        InputHandler->>GameEngine: togglePause()
+        GameEngine->>GameEngine: RUNNING <-> PAUSED
+    else Press R
+        Player->>InputHandler: Press R
+        InputHandler->>GameEngine: restart()
+        GameEngine->>GameEngine: reset board, score, pieces, state
+    else Press M
+        Player->>InputHandler: Press M
+        InputHandler->>GameEngine: toggleMusic()
+        GameEngine->>AudioManager: toggleMusic()
+        AudioManager->>AudioManager: play / stop / warn if unavailable
+    end
+
+    InputHandler->>GamePanel: afterInput callback
+    GamePanel->>GamePanel: repaint()
 ```
