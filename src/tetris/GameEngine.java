@@ -71,6 +71,7 @@ public class GameEngine {
     public void restart() {
         board.clear();
         scoreManager.reset();
+        audioManager.setMusicLevel(scoreManager.getLevel());
         nextPiece = createRandomPiece();
         state = GameState.RUNNING;
         spawnNextPiece();
@@ -93,6 +94,7 @@ public class GameEngine {
             audioManager.playLineClearSound();
         }
         scoreManager.addClearedLines(clearedLines);
+        audioManager.setMusicLevel(scoreManager.getLevel());
         spawnNextPiece();
     }
 

@@ -18,11 +18,15 @@ public class AudioManager {
     private static final String BACKGROUND_MUSIC_PATH = "assets/audio/katusha.mid";
     private static final String LINE_CLEAR_SOUND_PATH = "assets/audio/clear.wav";
     private static final String DROP_SOUND_PATH = "assets/audio/drop.wav";
+    private static final float BASE_TEMPO_FACTOR = 1.0f;
+    private static final float TEMPO_STEP_PER_LEVEL = 0.08f;
+    private static final float MAX_TEMPO_FACTOR = 2.0f;
 
     private Sequencer sequencer;
     private boolean musicAvailable;
     private boolean musicEnabled;
     private boolean missingMusicWarningShown;
+    private float tempoFactor = BASE_TEMPO_FACTOR;
 
     public AudioManager() {
         musicAvailable = new File(BACKGROUND_MUSIC_PATH).isFile();
@@ -47,6 +51,7 @@ public class AudioManager {
                 sequencer.setLoopCount(Sequencer.LOOP_CONTINUOUSLY);
             }
 
+            sequencer.setTempoFactor(tempoFactor);
             sequencer.start();
             musicEnabled = true;
         } catch (InvalidMidiDataException | IOException | MidiUnavailableException ex) {
@@ -68,6 +73,15 @@ public class AudioManager {
             stopBackgroundMusic();
         } else {
             playBackgroundMusic();
+        }
+    }
+
+    public void setMusicLevel(int level) {
+        int safeLevel = Math.max(1, level);
+        tempoFactor = Math.min(MAX_TEMPO_FACTOR, BASE_TEMPO_FACTOR + (safeLevel - 1) * TEMPO_STEP_PER_LEVEL);
+
+        if (sequencer != null && sequencer.isOpen()) {
+            sequencer.setTempoFactor(tempoFactor);
         }
     }
 
