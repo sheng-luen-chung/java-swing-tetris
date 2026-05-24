@@ -60,3 +60,9 @@ java -cp out tetris.TetrisApp
 ```text
 assets/audio/katusha.mid
 ```
+
+## 補充教學文件
+
+- `docs/how-to-package-jar.md`：說明如何產生 runnable jar，並把音檔一起包進 jar。
+- `docs/audio-assets-guide.md`：說明 MIDI/WAV 差異、Java 支援的 WAV 格式，以及 Audacity 轉檔方式。
+- `docs/javadoc-guide.md`：說明如何產生與閱讀 `docs/api/` API 網頁。
