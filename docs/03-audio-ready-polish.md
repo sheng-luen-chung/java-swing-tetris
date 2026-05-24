@@ -66,3 +66,13 @@ assets/audio/katusha.mid
 ```
 
 這個流程保留了清楚分工：`InputHandler` 處理按鍵，`GameEngine` 提供遊戲操作入口，`AudioManager` 處理音訊細節，`GamePanel` 顯示結果。
+
+## 後續版本
+
+Version 3 的重點是建立 audio-ready 架構。後續版本已將這個架構落實為實際音效、runnable jar、jar 內嵌音檔與 API 文件。
+
+請見：
+
+```text
+docs/04-runnable-jar-and-docs.md
+```
