@@ -2,6 +2,7 @@ package tetris;
 
 import java.io.File;
 import java.io.IOException;
+import java.net.URL;
 import javax.sound.midi.InvalidMidiDataException;
 import javax.sound.midi.MidiSystem;
 import javax.sound.midi.MidiUnavailableException;
@@ -29,7 +30,7 @@ public class AudioManager {
     private float tempoFactor = BASE_TEMPO_FACTOR;
 
     public AudioManager() {
-        musicAvailable = new File(BACKGROUND_MUSIC_PATH).isFile();
+        musicAvailable = resourceExists(BACKGROUND_MUSIC_PATH);
         if (!musicAvailable) {
             warnMissingMusic();
         }
@@ -44,7 +45,7 @@ public class AudioManager {
 
         try {
             if (sequencer == null || !sequencer.isOpen()) {
-                Sequence sequence = MidiSystem.getSequence(new File(BACKGROUND_MUSIC_PATH));
+                Sequence sequence = loadMidiSequence(BACKGROUND_MUSIC_PATH);
                 sequencer = MidiSystem.getSequencer();
                 sequencer.open();
                 sequencer.setSequence(sequence);
@@ -90,7 +91,7 @@ public class AudioManager {
     }
 
     public boolean isMusicAvailable() {
-        musicAvailable = new File(BACKGROUND_MUSIC_PATH).isFile();
+        musicAvailable = resourceExists(BACKGROUND_MUSIC_PATH);
         return musicAvailable;
     }
 
@@ -103,29 +104,48 @@ public class AudioManager {
     }
 
     private void playSoundEffect(String path) {
-        File file = new File(path);
-        if (!file.isFile()) {
+        if (!resourceExists(path)) {
             return;
         }
 
         try {
-            AudioInputStream audioInputStream = AudioSystem.getAudioInputStream(file);
+            AudioInputStream audioInputStream = loadAudioInputStream(path);
             Clip clip = AudioSystem.getClip();
             clip.open(audioInputStream);
+            audioInputStream.close();
             clip.addLineListener(event -> {
                 if (event.getType() == LineEvent.Type.STOP) {
                     event.getLine().close();
-                    try {
-                        audioInputStream.close();
-                    } catch (IOException ex) {
-                        System.out.println("Warning: could not close audio stream: " + ex.getMessage());
-                    }
                 }
             });
             clip.start();
         } catch (UnsupportedAudioFileException | IOException | LineUnavailableException ex) {
             System.out.println("Warning: could not play sound effect " + path + ": " + ex.getMessage());
         }
+    }
+
+    private Sequence loadMidiSequence(String path)
+            throws InvalidMidiDataException, IOException {
+        URL resource = AudioManager.class.getClassLoader().getResource(path);
+        if (resource != null) {
+            return MidiSystem.getSequence(resource);
+        }
+
+        return MidiSystem.getSequence(new File(path));
+    }
+
+    private AudioInputStream loadAudioInputStream(String path)
+            throws UnsupportedAudioFileException, IOException {
+        URL resource = AudioManager.class.getClassLoader().getResource(path);
+        if (resource != null) {
+            return AudioSystem.getAudioInputStream(resource);
+        }
+
+        return AudioSystem.getAudioInputStream(new File(path));
+    }
+
+    private boolean resourceExists(String path) {
+        return AudioManager.class.getClassLoader().getResource(path) != null || new File(path).isFile();
     }
 
     private void warnMissingMusic() {
