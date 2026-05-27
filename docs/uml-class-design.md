@@ -227,9 +227,40 @@ flowchart LR
 
 ## Scenario Diagrams
 
-以下 scenario 描述玩家操作如何流經 `InputHandler`、`GameEngine`、`AudioManager` 與 `GamePanel`。
+以下 scenario 依事件分組。每個 scenario 都只描述該流程需要的參與者與模組；目前版本沒有 title screen，也沒有 shoot 動作，遊戲啟動後會直接進入 `RUNNING` 狀態。
 
-### Scenario 1：Move Or Rotate Piece
+### Scenario 1：Start Game
+
+```mermaid
+sequenceDiagram
+    participant TetrisApp
+    participant GameFrame
+    participant GamePanel
+    participant GameEngine
+    participant Timer
+
+    TetrisApp->>GameFrame: new GameFrame()
+    GameFrame->>GamePanel: new GamePanel()
+    GamePanel->>GameEngine: new GameEngine()
+    GameEngine->>GameEngine: restart()
+    GamePanel->>Timer: start()
+```
+
+| Step | Player | TetrisApp | GameFrame | GamePanel | GameEngine | Timer |
+|---|---|---|---|---|---|---|
+| 1 | Launches app | `main()` schedules UI |  |  |  |  |
+| 2 |  | Creates frame | Constructor runs |  |  |  |
+| 3 |  |  | Adds panel | Constructor runs | Creates engine |  |
+| 4 |  |  |  |  | `restart()` initializes board, score, pieces, state |  |
+| 5 |  |  | `setVisible(true)` | Starts repaint loop |  | `start()` |
+
+1. Player launches the application.
+2. `TetrisApp.main()` creates `GameFrame` on the Swing Event Dispatch Thread.
+3. `GameFrame` adds a new `GamePanel`.
+4. `GamePanel` creates `GameEngine`; the engine constructor calls `restart()`.
+5. `GamePanel` starts the Swing `Timer`, so the game begins in `RUNNING`.
+
+### Scenario 2：Move Or Rotate Piece
 
 ```mermaid
 sequenceDiagram
@@ -239,49 +270,65 @@ sequenceDiagram
     participant Board
     participant GamePanel
 
-    Player->>InputHandler: Press Arrow key
-    InputHandler->>GameEngine: moveLeft() / moveRight() / rotate() / softDrop()
+    Player->>InputHandler: Press Left / Right / Up
+    InputHandler->>GameEngine: moveLeft() / moveRight() / rotate()
     GameEngine->>Board: canPlace(candidate)
     Board-->>GameEngine: true / false
-    alt valid move
-        GameEngine->>GameEngine: update currentPiece
-    else invalid move
-        GameEngine->>GameEngine: keep currentPiece
-    end
     InputHandler->>GamePanel: afterInput callback
     GamePanel->>GamePanel: repaint()
 ```
 
-### Scenario 2：Timer Tick And Line Clear
+| Step | Player | InputHandler | GameEngine | Board | GamePanel |
+|---|---|---|---|---|---|
+| 1 | Presses Left, Right, or Up | Receives `keyPressed()` |  |  |  |
+| 2 |  | Calls `moveLeft()`, `moveRight()`, or `rotate()` | Builds candidate piece |  |  |
+| 3 |  |  | Calls `canPlace(candidate)` | Returns valid or blocked |  |
+| 4 |  |  | Updates `currentPiece` only when valid |  |  |
+| 5 |  | Runs callback |  |  | Updates timer delay and repaints |
+
+1. Player presses Left, Right, or Up.
+2. `InputHandler.keyPressed()` maps the key to `GameEngine.moveLeft()`, `moveRight()`, or `rotate()`.
+3. `GameEngine.tryMove()` asks `Board.canPlace(candidate)`.
+4. If the candidate is valid and the state is `RUNNING`, `currentPiece` changes.
+5. `InputHandler` runs the callback so `GamePanel` updates the timer delay and repaints.
+
+### Scenario 3：Soft Drop
 
 ```mermaid
 sequenceDiagram
-    participant Timer
+    actor Player
+    participant InputHandler
     participant GameEngine
     participant Board
-    participant ScoreManager
-    participant AudioManager
     participant GamePanel
 
-    Timer->>GameEngine: tick()
-    GameEngine->>Board: canPlace(currentPiece moved down)
+    Player->>InputHandler: Press Down
+    InputHandler->>GameEngine: softDrop()
+    GameEngine->>Board: canPlace(piece moved down)
     alt can move down
         GameEngine->>GameEngine: update currentPiece
-    else cannot move down
-        GameEngine->>Board: lock(currentPiece)
-        GameEngine->>Board: clearCompletedLines()
-        Board-->>GameEngine: clearedLines
-        opt clearedLines > 0
-            GameEngine->>AudioManager: playLineClearSound()
-        end
-        GameEngine->>ScoreManager: addClearedLines(clearedLines)
-        GameEngine->>AudioManager: setMusicLevel(level)
-        GameEngine->>GameEngine: spawnNextPiece()
+    else blocked
+        GameEngine->>GameEngine: lockCurrentPiece()
     end
-    Timer->>GamePanel: repaint()
+    InputHandler->>GamePanel: afterInput callback
 ```
 
-### Scenario 3：Hard Drop
+| Step | Player | InputHandler | GameEngine | Board | GamePanel |
+|---|---|---|---|---|---|
+| 1 | Presses Down | Receives `keyPressed()` |  |  |  |
+| 2 |  | Calls `softDrop()` | Checks `RUNNING` state |  |  |
+| 3 |  |  | Calls `movePieceDownOrLock()` | `canPlace(moved)` |  |
+| 4 |  |  | Moves piece or locks it | May receive locked cells later |  |
+| 5 |  | Runs callback |  |  | Updates timer delay and repaints |
+
+1. Player presses Down.
+2. `InputHandler` calls `GameEngine.softDrop()`.
+3. `softDrop()` only acts when state is `RUNNING`.
+4. The engine tries to move the piece one row down.
+5. If the piece is blocked, the engine locks it through the normal lock flow.
+6. `GamePanel` repaints after the input callback.
+
+### Scenario 4：Hard Drop And Lock Piece
 
 ```mermaid
 sequenceDiagram
@@ -294,24 +341,128 @@ sequenceDiagram
 
     Player->>InputHandler: Press Space
     InputHandler->>GameEngine: hardDrop()
-    loop until next row is blocked
-        GameEngine->>Board: canPlace(piece moved down)
-        Board-->>GameEngine: true
-        GameEngine->>GameEngine: move piece down
-    end
+    GameEngine->>Board: canPlace(next row)
     GameEngine->>AudioManager: playDropSound()
     GameEngine->>Board: lock(currentPiece)
+    GameEngine->>GameEngine: spawnNextPiece()
+    InputHandler->>GamePanel: afterInput callback
+```
+
+| Step | Player | InputHandler | GameEngine | Board | AudioManager | GamePanel |
+|---|---|---|---|---|---|---|
+| 1 | Presses Space | Receives `keyPressed()` |  |  |  |  |
+| 2 |  | Calls `hardDrop()` | Checks `RUNNING` state |  |  |  |
+| 3 |  |  | Repeats downward candidate checks | `canPlace(next row)` |  |  |
+| 4 |  |  | Sets final dropped position |  | `playDropSound()` |  |
+| 5 |  |  | Locks piece and spawns next | `lock(currentPiece)` |  |  |
+| 6 |  | Runs callback |  |  |  | Updates timer delay and repaints |
+
+1. Player presses Space.
+2. `InputHandler` calls `GameEngine.hardDrop()`.
+3. The engine moves the piece downward until `Board.canPlace(dropped.movedBy(0, 1))` is false.
+4. The engine plays the drop sound through `AudioManager.playDropSound()`.
+5. The engine locks the piece, checks line clears, and spawns the next piece.
+6. `GamePanel` repaints after the input callback.
+
+### Scenario 5：Timer Tick And Falling Piece
+
+```mermaid
+sequenceDiagram
+    participant Timer
+    participant GamePanel
+    participant GameEngine
+    participant Board
+
+    Timer->>GamePanel: action event
+    GamePanel->>GameEngine: tick()
+    GameEngine->>Board: canPlace(piece moved down)
+    alt can move down
+        GameEngine->>GameEngine: update currentPiece
+    else blocked
+        GameEngine->>GameEngine: lockCurrentPiece()
+    end
+    GamePanel->>Timer: setDelay(getDropDelay())
+    GamePanel->>GamePanel: repaint()
+```
+
+| Step | Timer | GamePanel | GameEngine | Board |
+|---|---|---|---|---|
+| 1 | Fires action event | Timer callback runs |  |  |
+| 2 |  | Calls `tick()` | Returns immediately unless state is `RUNNING` |  |
+| 3 |  |  | Calls `movePieceDownOrLock()` | `canPlace(moved)` |
+| 4 |  |  | Moves or locks current piece |  |
+| 5 | Receives new delay | Calls `setDelay(engine.getDropDelay())` and `repaint()` |  |  |
+
+1. Swing `Timer` fires.
+2. `GamePanel` calls `GameEngine.tick()`.
+3. If state is not `RUNNING`, `tick()` returns.
+4. If the piece can move down, `currentPiece` moves by one row.
+5. If blocked, the engine locks the piece.
+6. The timer delay is refreshed from `GameEngine.getDropDelay()`, then the panel repaints.
+
+### Scenario 6：Clear Lines And Advance Level
+
+```mermaid
+sequenceDiagram
+    participant GameEngine
+    participant Board
+    participant ScoreManager
+    participant AudioManager
+
     GameEngine->>Board: clearCompletedLines()
+    Board-->>GameEngine: clearedLines
     opt clearedLines > 0
         GameEngine->>AudioManager: playLineClearSound()
     end
     GameEngine->>ScoreManager: addClearedLines(clearedLines)
-    GameEngine->>AudioManager: setMusicLevel(level)
-    InputHandler->>GamePanel: afterInput callback
-    GamePanel->>GamePanel: repaint()
+    GameEngine->>AudioManager: setMusicLevel(scoreManager.getLevel())
 ```
 
-### Scenario 4：Pause, Restart, And Music Toggle
+| Step | GameEngine | Board | ScoreManager | AudioManager |
+|---|---|---|---|---|
+| 1 | Runs `lockCurrentPiece()` |  |  |  |
+| 2 | Calls `clearCompletedLines()` | Removes full rows |  |  |
+| 3 | Receives `clearedLines` |  |  |  |
+| 4 | If lines were cleared |  |  | `playLineClearSound()` |
+| 5 | Sends cleared count |  | `addClearedLines(clearedLines)` updates score and level |  |
+| 6 | Applies current level |  |  | `setMusicLevel(level)` |
+
+1. A piece has just been locked.
+2. `GameEngine.lockCurrentPiece()` calls `Board.clearCompletedLines()`.
+3. `Board` removes full rows and returns the number of cleared lines.
+4. If at least one line was cleared, `AudioManager.playLineClearSound()` runs.
+5. `ScoreManager.addClearedLines()` updates total lines, score, and level.
+6. `AudioManager.setMusicLevel()` adjusts MIDI tempo for the current level.
+
+### Scenario 7：Pause And Resume
+
+```mermaid
+sequenceDiagram
+    actor Player
+    participant InputHandler
+    participant GameEngine
+    participant GamePanel
+
+    Player->>InputHandler: Press P
+    InputHandler->>GameEngine: togglePause()
+    GameEngine->>GameEngine: RUNNING <-> PAUSED
+    InputHandler->>GamePanel: afterInput callback
+    GamePanel->>GamePanel: repaint overlay
+```
+
+| Step | Player | InputHandler | GameEngine | GamePanel |
+|---|---|---|---|---|
+| 1 | Presses P | Receives `keyPressed()` |  |  |
+| 2 |  | Calls `togglePause()` | Switches `RUNNING` to `PAUSED`, or `PAUSED` to `RUNNING` |  |
+| 3 |  | Runs callback |  | Updates timer delay and repaints |
+| 4 |  |  |  | Shows or hides pause overlay |
+
+1. Player presses P.
+2. `InputHandler` calls `GameEngine.togglePause()`.
+3. The engine changes `RUNNING` to `PAUSED`, or `PAUSED` back to `RUNNING`.
+4. `GamePanel` repaints and displays the pause overlay only while state is `PAUSED`.
+
+### Scenario 8：Toggle Music
 
 ```mermaid
 sequenceDiagram
@@ -321,21 +472,58 @@ sequenceDiagram
     participant AudioManager
     participant GamePanel
 
-    alt Press P
-        Player->>InputHandler: Press P
-        InputHandler->>GameEngine: togglePause()
-        GameEngine->>GameEngine: RUNNING <-> PAUSED
-    else Press R
-        Player->>InputHandler: Press R
-        InputHandler->>GameEngine: restart()
-        GameEngine->>GameEngine: reset board, score, pieces, state
-    else Press M
-        Player->>InputHandler: Press M
-        InputHandler->>GameEngine: toggleMusic()
-        GameEngine->>AudioManager: toggleMusic()
-        AudioManager->>AudioManager: play / stop / warn if unavailable
-    end
-
+    Player->>InputHandler: Press M
+    InputHandler->>GameEngine: toggleMusic()
+    GameEngine->>AudioManager: toggleMusic()
+    AudioManager->>AudioManager: playBackgroundMusic() / stopBackgroundMusic()
     InputHandler->>GamePanel: afterInput callback
-    GamePanel->>GamePanel: repaint()
 ```
+
+| Step | Player | InputHandler | GameEngine | AudioManager | GamePanel |
+|---|---|---|---|---|---|
+| 1 | Presses M | Receives `keyPressed()` |  |  |  |
+| 2 |  | Calls `toggleMusic()` | Delegates to audio manager |  |  |
+| 3 |  |  |  | Starts or stops MIDI music |  |
+| 4 |  | Runs callback |  |  | Repaints music status |
+
+1. Player presses M.
+2. `InputHandler` calls `GameEngine.toggleMusic()`.
+3. `GameEngine` delegates to `AudioManager.toggleMusic()`.
+4. `AudioManager` either calls `playBackgroundMusic()` or `stopBackgroundMusic()`.
+5. `GamePanel` repaints the side panel music status.
+
+### Scenario 9：Game Over And Restart
+
+```mermaid
+sequenceDiagram
+    actor Player
+    participant InputHandler
+    participant GameEngine
+    participant Board
+    participant GamePanel
+
+    GameEngine->>GameEngine: spawnNextPiece()
+    GameEngine->>Board: canPlace(currentPiece)
+    Board-->>GameEngine: false
+    GameEngine->>GameEngine: state = GAME_OVER
+    GamePanel->>GamePanel: paint Game Over overlay
+    Player->>InputHandler: Press R
+    InputHandler->>GameEngine: restart()
+```
+
+| Step | Player | InputHandler | GameEngine | Board | GamePanel |
+|---|---|---|---|---|---|
+| 1 |  |  | `spawnNextPiece()` |  |  |
+| 2 |  |  | Checks new piece | `canPlace(currentPiece)` returns false |  |
+| 3 |  |  | Sets state to `GAME_OVER` |  | Paints Game Over overlay |
+| 4 | Presses R | Receives `keyPressed()` |  |  |  |
+| 5 |  | Calls `restart()` | Clears board, score, pieces, state | Board is cleared |  |
+| 6 |  | Runs callback |  |  | Repaints running game |
+
+1. After a lock flow, `GameEngine.spawnNextPiece()` makes the queued piece current.
+2. The engine asks `Board.canPlace(currentPiece)`.
+3. If the new piece cannot be placed, state becomes `GAME_OVER`.
+4. `GamePanel.paintComponent()` draws the Game Over overlay.
+5. Player presses R.
+6. `InputHandler` calls `GameEngine.restart()`.
+7. The board, score, music level, pieces, and state are reset, then the panel repaints.
